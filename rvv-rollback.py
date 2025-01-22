@@ -4,8 +4,8 @@ assembly code with Vector Extension version 1.0
 to version 0.7
 """
 
-__author__ = "Joseph Lee - EPCC (j.lee@epcc.ed.ac.uk)"
-__version__ = "0.1.3"
+__author__ = "Joseph Lee - EPCC (j.lee@epcc.ed.ac.uk), Christopher Day - EPCC (c.day@epcc.ed.ac.uk)"
+__version__ = "0.1.4"
 __license__ = "MIT"
 
 import argparse
@@ -16,6 +16,11 @@ def replace_instruction(line, linenum, args):
     newline = line
     line_changed = False
 
+    if args.use_xtheadvectorext:
+        vector_extension_tag = "_xtheadvector"
+    else:
+        vector_extension_tag = "_v0p7"
+
     v_one_attribute_list = ["_v1p0","_zve32f1p0","_zve32x1p0","_zve64d1p0","_zve64f1p0","_zve64x1p0","_zvl128b1p0","_zvl32b1p0","_zvl64b1p0"]
     v_pseven_attribute_added = False
     for attribute in v_one_attribute_list:
@@ -23,7 +28,7 @@ def replace_instruction(line, linenum, args):
             newline = newline.replace(attribute, '')
             line_changed = True
             if not v_pseven_attribute_added:
-                newline = newline.replace("\"\n", "_v0p7\"\n")
+                newline = newline.replace("\"\n", f"{vector_extension_tag}\"\n")
                 v_pseven_attribute_added = True
 
 
@@ -326,6 +331,9 @@ def replace_instruction(line, linenum, args):
         print("updated  = " + newline)
         print("=========================================================")
 
+    if args.use_xtheadvectorext:
+        newline = re.sub(r'(^[#\s]*)(v[a-zA-Z0-9\.]*)', r'\1th.\2', newline, flags=re.MULTILINE)
+
     return newline
         
 
@@ -337,6 +345,8 @@ def main(args):
     filename = args.filename
     if (args.outfile):
         outfilename = args.outfile
+    elif args.use_xtheadvectorext:
+        outfilename = filename.replace(".s", "-rvxtheadvector.s")
     else:
         outfilename = filename.replace(".s", "-rvv0p7.s")
 
@@ -391,6 +401,17 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--base_isa_version", action="store",
                         dest="base_isa_version", default=1.0, type=float,
                         help="RISC-V ISA version to support")
+    
+    
+    xtheadvectorext_parser = parser.add_mutually_exclusive_group(required=False)
+    xtheadvectorext_parser.add_argument("-t", "--xtheadvectorext",
+                                        dest='use_xtheadvectorext',
+                                        action='store_true',
+                                        help="Generate output for T-Head Vector Extension included in gcc-14")
+    xtheadvectorext_parser.add_argument('--v0p7', dest='use_xtheadvectorext',
+                                        action='store_false',
+                                        help="Generate default output for RISC-V Vector Extension version 0.7 (v0p7)")
+    parser.set_defaults(use_xtheadvectorext=False)
 
     args = parser.parse_args()
     main(args)
