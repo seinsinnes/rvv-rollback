@@ -12,11 +12,11 @@ import argparse
 import re
 
 
-def replace_instruction(line, linenum, args):
+def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, verbosity):
     newline = line
     line_changed = False
 
-    if args.use_xtheadvectorext:
+    if use_xtheadvectorext:
         vector_extension_tag = "_xtheadvector"
     else:
         vector_extension_tag = "_v0p7"
@@ -32,7 +32,7 @@ def replace_instruction(line, linenum, args):
                 v_pseven_attribute_added = True
 
 
-    if args.base_isa_version < 2.0:
+    if base_isa_version < 2.0:
         base_v2_attribute_list = ["_zicsr2p0", "_zifencei2p0"]
         for attribute in base_v2_attribute_list:
             if attribute in newline:
@@ -255,7 +255,7 @@ def replace_instruction(line, linenum, args):
             case 'vzext.vf2':  # zero extend vzext.v vd, vs2, vm
                 vd = instruction[1]
                 vs2 = instruction[2]
-                if instruction[3]:
+                if len(instruction) > 3 and instruction[3]:
                     vm = "," + instruction[3]
                 else:
                     vm = ""
@@ -265,7 +265,8 @@ def replace_instruction(line, linenum, args):
             case 'vzext.vf4':
                 vd = instruction[1]
                 vs2 = instruction[2]
-                if instruction[3]:
+                
+                if len(instruction) > 3 and instruction[3]:
                     vm = instruction[3]
                 else:
                     vm = ""
@@ -325,14 +326,15 @@ def replace_instruction(line, linenum, args):
                     line_changed = False
 
 
-    if args.verbose > 0 and line_changed == True:
+    if verbosity > 0 and line_changed == True:
         print("Line number: {LINENUM}".format(LINENUM=linenum))
         print("original = " + line)
         print("updated  = " + newline)
         print("=========================================================")
 
-    if args.use_xtheadvectorext:
+    if use_xtheadvectorext:
         newline = re.sub(r'(^[#\s]*)(v[a-zA-Z0-9\.]*)', r'\1th.\2', newline, flags=re.MULTILINE)
+    
 
     return newline
         
@@ -341,18 +343,17 @@ def replace_instruction(line, linenum, args):
 
 
 
-def main(args):
-    filename = args.filename
-    if (args.outfile):
-        outfilename = args.outfile
-    elif args.use_xtheadvectorext:
-        outfilename = filename.replace(".s", "-rvxtheadvector.s")
-    else:
-        outfilename = filename.replace(".s", "-rvv0p7.s")
+def rollback_file(filename, outfilename="", base_isa_version=1.0, use_xtheadvectorext=False, verbosity=0 ):
+    
+    if not outfilename:
+        if use_xtheadvectorext:
+            outfilename = filename.replace(".s", "-rvxtheadvector.s")
+        else:
+            outfilename = filename.replace(".s", "-rvv0p7.s")
 
     print("input file = {IN}  |  output file = {OUT}\n".format(IN=filename, OUT=outfilename))
 
-    print("base ISA version = {}".format(args.base_isa_version))
+    print("base ISA version = {}".format(base_isa_version))
 
     file = open(filename, 'r')
     outfile = open(outfilename, 'w')
@@ -360,14 +361,14 @@ def main(args):
     linenum = 0
     for line in file.readlines():
         linenum = linenum + 1
-        newline = replace_instruction(line, linenum, args)
+        newline = replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, verbosity)
         outfile.writelines(newline)
 
 
     file.close()
     outfile.close()
 
-
+    return outfilename
 
 
 
@@ -381,7 +382,7 @@ if __name__ == "__main__":
 
     parser.add_argument("filename", help="Required filename")
 
-    parser.add_argument("-o", "--outfile", action="store", dest="outfile")
+    parser.add_argument("-o", "--outfile", action="store", dest="outfilename")
 
     # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)
     parser.add_argument(
@@ -414,4 +415,4 @@ if __name__ == "__main__":
     parser.set_defaults(use_xtheadvectorext=False)
 
     args = parser.parse_args()
-    main(args)
+    rollback_file(args.filename, args.outfilename, args.base_isa_version, args.use_xtheadvectorext, args.verbose )
