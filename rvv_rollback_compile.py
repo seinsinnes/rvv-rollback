@@ -74,7 +74,7 @@ if __name__ == "__main__":
     if filename.rpartition(".")[-1] != "o" and filename.rpartition(".")[-1] != "a":
         as_filename = filename.rpartition(".")[0] + ".s"
 
-        compiler_cmd = f"{args.compiler_path} --sysroot={args.sysroot}  -no-integrated-as -march=rv64gc{'_zve32f' if args.zve32f else 'v'}  -menable-experimental-extensions -mllvm --riscv-v-vector-bits-min=128 {' '.join(unknownargs)} -S -o {as_filename} -c"
+        compiler_cmd = f"{args.compiler_path} --sysroot={args.sysroot}  -no-integrated-as -march=rv64gc{'_zve32f' if args.zve32f else 'v'}_zvl128b  -menable-experimental-extensions -mllvm --riscv-v-vector-bits-min=128 {' '.join(unknownargs)} -S -o {as_filename} -c"
         #--sysroot=/usr/local/share/riscv-compiler/llvm-19.1/sysroot/
 
         if args.verbose > 0 or True:

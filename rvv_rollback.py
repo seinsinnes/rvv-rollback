@@ -120,8 +120,10 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
         rs = instruction[2]
         if (len(instruction) <= 3):
             vm = ""
-        elif (instruction[3]):
+        elif (instruction[3].strip("# ")):
             vm = "," + instruction[3]
+        else:
+            vm = ""
         newline = "# Replacing Line: {LINENUM} - {LINE}".format(
                     LINENUM=linenum, LINE=line)
         newline += "\tsd     t0, 0(sp)\n"
@@ -130,6 +132,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
         newline += "\tcsrr     t1, vtype\n"
         temp_vset = ""
         temp_vinstr = ""
+        print(f"VM: {vm}")
         match instruction[0]:
             case 'vl1r.v' | 'vl1re8.v' | 'vl1re16.v' | 'vl1re32' | 'vl1re64':
                 temp_vset ="\tvsetvli  x0, x0, e32, m1\n"
@@ -207,7 +210,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
     # Change other miscellaneous instruction
     if any(word in line for word in change_instruction_list):
         line_changed = True
-        instruction = re.split(r"[, \t]+", line.lstrip())
+        instruction = re.split(r"[, \t]+", line.strip())
         
 
         match instruction[0]:
@@ -229,12 +232,19 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                     print(
                         "ERROR: Line number: {LINENUM} - Fractional LMUL".format(LINENUM=linenum))
                 AVL = instruction[2]
+                print(f"vsetivli replacing: {line} {instruction}")
                 newline = "# Replacing Line: {LINENUM} - {LINE}".format(
                     LINENUM=linenum, LINE=line)
                 newline +=  "\tsd     t0, 0(sp)\t  # rvv-rollback\n"
-                newline += "\taddi   t0, " + AVL +  " # rvv-rollback\n"
+                
+                #If AVL is a bare integer it needs to be the third operand.
+                if AVL.lstrip("-").isdigit():
+                    newline += "\taddi   t0, x0, " + AVL +  " # rvv-rollback\n"
+                else:
+                    newline += "\taddi   t0, " + AVL +  " # rvv-rollback\n"
                 temp =line.replace(", ta", "").replace(
-                    ", tu", "").replace(", ma", "").replace(", mu", "").replace(AVL, "t0").replace("vsetivli", "vsetvli").replace("\n","")
+                    ", tu", "").replace(", ma", "").replace(", mu", "").replace("vsetivli", "vsetvli").replace("\n","")
+                temp = re.sub(r'([\s\,]+)' + AVL + r'([\s\,]+|$)', r'\1t0\2', temp)
                 newline += temp + " # rvv-rollback\n"
                 newline += "\tld     t0, 0(sp)\t  # rvv-rollback\n"
                 suggestion = "# Replacing Line: {LINENUM} - {LINE}".format(
@@ -259,7 +269,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                     vm = "," + instruction[3]
                 else:
                     vm = ""
-                newline = "\tvwaddu.vx, {VD}, {VS2}, x0 {VM}\n" # unsigned widening add zero
+                newline = "\tvwaddu.vx {VD}, {VS2}, x0 {VM}\n" # unsigned widening add zero
                 newline = newline.format(VD=vd, VS2=vs2, VM=vm)
 
             case 'vzext.vf4':
@@ -270,8 +280,8 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                     vm = instruction[3]
                 else:
                     vm = ""
-                newline = ("\tvwaddu.vx, {VD}, {VS2}, x0 {VM}\n" +
-                        "\tvwaddu.vx, {VD}, {VD},  x0 {VM}\n")  # unsigned widening add zero twice
+                newline = ("\tvwaddu.vx {VD}, {VS2}, x0 {VM}\n" +
+                        "\tvwaddu.vx {VD}, {VD},  x0 {VM}\n")  # unsigned widening add zero twice
                 newline = newline.format(VD=vd, VS2=vs2, VM=vm)
             case 'vzext.vf8':
                 vd = instruction[1]
@@ -280,9 +290,9 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                     vm = instruction[3]
                 else:
                     vm = ""
-                newline = ("\tvwaddu.vx, {VD}, {VS2}, x0 {VM}\n" +
-                        "\tvwaddu.vx, {VD}, {VD},  x0 {VM}\n" +
-                        "\tvwaddu.vx, {VD}, {VD},  x0 {VM}\n")  # unsigned widening add zero three times
+                newline = ("\tvwaddu.vx {VD}, {VS2}, x0 {VM}\n" +
+                        "\tvwaddu.vx {VD}, {VD},  x0 {VM}\n" +
+                        "\tvwaddu.vx {VD}, {VD},  x0 {VM}\n")  # unsigned widening add zero three times
                 newline = newline.format(VD=vd, VS2=vs2, VM=vm)
 
             case 'vsext.vf2':  # sign extend vsext.v vd, vs2, vm
@@ -292,7 +302,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                     vm = instruction[3]
                 else:
                     vm = ""
-                newline = "\tvwadd.vx, {VD}, {VS2}, x0 {VM}\n"  # signed widening add zero
+                newline = "\tvwadd.vx {VD}, {VS2}, x0 {VM}\n"  # signed widening add zero
                 newline = newline.format(VD=vd, VS2=vs2, VM=vm)
 
             case 'vsext.vf4':
@@ -302,8 +312,8 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                     vm = instruction[3]
                 else:
                     vm = ""
-                newline = ("\tvwadd.vx, {VD}, {VS2}, x0 {VM}\n" +
-                        "\tvwadd.vx, {VD}, {VD},  x0 {VM}\n")  # signed widening add zero twice
+                newline = ("\tvwadd.vx {VD}, {VS2}, x0 {VM}\n" +
+                        "\tvwadd.vx {VD}, {VD}, x0 {VM}\n")  # signed widening add zero twice
                 newline = newline.format(VD=vd, VS2=vs2, VM=vm)
             case 'vsext.vf8':
                 vd = instruction[1]
@@ -312,9 +322,9 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                     vm = instruction[3]
                 else:
                     vm = ""
-                newline = ("\tvwadd.vx, {VD}, {VS2}, x0 {VM}\n" +
-                        "\tvwadd.vx, {VD}, {VD},  x0 {VM}\n" +
-                        "\tvwadd.vx, {VD}, {VD},  x0 {VM}\n")  # signed widening add zero three times
+                newline = ("\tvwadd.vx {VD}, {VS2}, x0 {VM}\n" +
+                        "\tvwadd.vx {VD}, {VD},  x0 {VM}\n" +
+                        "\tvwadd.vx {VD}, {VD},  x0 {VM}\n")  # signed widening add zero three times
                 newline = newline.format(VD=vd, VS2=vs2, VM=vm)
             case 'csrr':
                 if instruction[2].strip() == "vlenb":
