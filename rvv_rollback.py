@@ -225,12 +225,16 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                 fractional_LMUL = ["mf2", "mf4", "mf8"]
                 if any(fLMUL in line for fLMUL in fractional_LMUL):
                     print(
-                        "ERROR: Line number: {LINENUM} - Fractional LMUL".format(LINENUM=linenum))
+                        "ERROR: Line number: {LINENUM} - Fractional LMUL - replacing with smallest whole LMUL m1".format(LINENUM=linenum))
+                    for fLMUL in fractional_LMUL:
+                        newline = newline.replace(fLMUL, "m1")
             case 'vsetivli':  
                 fractional_LMUL = ["mf2", "mf4", "mf8"]
                 if any(fLMUL in line for fLMUL in fractional_LMUL):
                     print(
-                        "ERROR: Line number: {LINENUM} - Fractional LMUL".format(LINENUM=linenum))
+                        "ERROR: Line number: {LINENUM} - Fractional LMUL - replacing with smallest whole LMUL m1".format(LINENUM=linenum))
+                    for fLMUL in fractional_LMUL:
+                        newline = newline.replace(fLMUL, "m1")
                 AVL = instruction[2]
                 print(f"vsetivli replacing: {line} {instruction}")
                 newline = "# Replacing Line: {LINENUM} - {LINE}".format(
