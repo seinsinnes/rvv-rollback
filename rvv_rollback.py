@@ -126,6 +126,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
             vm = ""
         newline = "# Replacing Line: {LINENUM} - {LINE}".format(
                     LINENUM=linenum, LINE=line)
+        newline += "\taddi sp, sp, -16\n"
         newline += "\tsd     t0, 0(sp)\n"
         newline += "\tsd     t1, 8(sp)\n"
         newline += "\tcsrr     t0, vl\n"
@@ -187,6 +188,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
         newline += "\tvsetvl   x0, t0, t1\n"
         newline += "\tld     t0, 0(sp)\n"
         newline += "\tld     t1, 8(sp)\n"
+        newline += "\taddi   sp, sp, -16\n"
 
         suggestion = "# Replacing Line: {LINENUM} - {LINE}\n".format(
             LINENUM=linenum, LINE=line)
@@ -239,6 +241,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                 print(f"vsetivli replacing: {line} {instruction}")
                 newline = "# Replacing Line: {LINENUM} - {LINE}".format(
                     LINENUM=linenum, LINE=line)
+                newline +=  "\taddi   sp, sp, -8\t  # rvv-rollback\n"
                 newline +=  "\tsd     t0, 0(sp)\t  # rvv-rollback\n"
                 
                 #If AVL is a bare integer it needs to be the third operand.
@@ -251,6 +254,7 @@ def replace_instruction(line, linenum, base_isa_version, use_xtheadvectorext, ve
                 temp = re.sub(r'([\s\,]+)' + AVL + r'([\s\,]+|$)', r'\1t0\2', temp)
                 newline += temp + " # rvv-rollback\n"
                 newline += "\tld     t0, 0(sp)\t  # rvv-rollback\n"
+                newline += "\taddi   sp, sp, 8\t  # rvv-rollback\n"
                 suggestion = "# Replacing Line: {LINENUM} - {LINE}".format(
                     LINENUM=linenum, LINE=line)
                 suggestion += "# Suggestion\n"
